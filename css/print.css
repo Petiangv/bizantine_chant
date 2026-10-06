@@ -1,0 +1,7 @@
+@media print{
+  header p, .toolbar, footer, .score-meta{display:none !important;}
+  body{background:#fff;}
+  main{padding:0;}
+  .score-panel{border:none; background:#fff; padding:0;}
+  .score-scroll{box-shadow:none; background-image:none;}
+}

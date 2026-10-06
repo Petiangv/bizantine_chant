@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Psaltiki — Editor de Notação Bizantina</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Noto+Serif:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/toolbar.css">
+<link rel="stylesheet" href="css/score.css">
+<link rel="stylesheet" href="css/footer.css">
+<link rel="stylesheet" href="css/print.css">
+</head>
+<body>
+
+<header>
+  <h1>Psaltiki <span>— editor de notação bizantina (neumas)</span></h1>
+  <p>Clique num sinal de intervalo para acrescentar o próximo neuma · clique num neuma já lançado para apagá-lo</p>
+</header>
+
+<main>
+  <aside class="toolbar">
+
+    <div class="tb-section">
+      <div class="tb-label">Sinal de intervalo (clique rápido)</div>
+      <div class="int-grid" id="intGrid"></div>
+    </div>
+
+    <div class="tb-section">
+      <div class="tb-label">Combinar sinais</div>
+      <div class="row-btns" id="comboGrid"></div>
+      <div class="combo-preview" id="comboPreview">
+        <div class="combo-preview-icon" id="comboPreviewIcon"></div>
+        <div class="combo-preview-val" id="comboPreviewVal">0</div>
+      </div>
+      <div class="row-btns">
+        <button class="pill-btn" id="comboAddBtn">Adicionar</button>
+        <button class="pill-btn" id="comboClearBtn">Limpar</button>
+      </div>
+    </div>
+
+    <div class="tb-section">
+      <div class="tb-label">Sílaba</div>
+      <input type="text" id="syllInput" placeholder="ex.: Κύ, ρι, ε...">
+      <div class="row-btns">
+        <button class="pill-btn" id="newSyllBtn">Nova sílaba / encerrar grupo</button>
+      </div>
+      <div class="hint" style="border-top:none; padding-top:0;">
+        Enquanto a sílaba não mudar, cada neuma que você acrescentar continua fazendo parte dela (melisma): os sinais aparecem combinados numa única célula, com o texto uma só vez embaixo — mas cada sinal continua sendo tocado com sua própria duração (nada é encurtado).
+      </div>
+    </div>
+
+    <div class="tb-section">
+      <div class="tb-label">Σημάδια χρόνου (duração)</div>
+      <div class="row-btns">
+        <button class="pill-btn active" data-mod="normal">Ἁπλοῦν 1×</button>
+        <button class="pill-btn" data-mod="klasma">Κλάσμα 1½×</button>
+        <button class="pill-btn" data-mod="apli">Ἁπλή 2×</button>
+        <button class="pill-btn" data-mod="dipli">Διπλή 3×</button>
+        <button class="pill-btn" data-mod="tripli">Τριπλή 4×</button>
+      </div>
+      <div class="row-btns" style="margin-top:2px;">
+        <button class="pill-btn" data-mod="gorgon">Γοργόν ½×</button>
+        <button class="pill-btn" data-mod="digorgon">Δίγοργον ⅓×</button>
+        <button class="pill-btn" data-mod="trigorgon">Τρίγοργον ¼×</button>
+      </div>
+    </div>
+
+    <div class="tb-section">
+      <div class="tb-label">Pausas (στίξη)</div>
+      <div class="row-btns">
+        <button class="pill-btn" id="restShort">Respiração ,</button>
+        <button class="pill-btn" id="restLong">Pausa plena ·</button>
+      </div>
+    </div>
+
+    <div class="tb-section">
+      <div class="tb-label">Ἦχος (modo / martíria)</div>
+      <select id="modeSelect">
+        <option value="Α΄">Ἦχος Α΄ (Πρῶτος)</option>
+        <option value="Β΄">Ἦχος Β΄ (Δεύτερος)</option>
+        <option value="Γ΄">Ἦχος Γ΄ (Τρίτος)</option>
+        <option value="Δ΄">Ἦχος Δ΄ (Τέταρτος)</option>
+        <option value="Πλ.Α΄">Ἦχος Πλ. Α΄</option>
+        <option value="Πλ.Β΄">Ἦχος Πλ. Β΄</option>
+        <option value="Βαρύς">Ἦχος Βαρύς</option>
+        <option value="Πλ.Δ΄">Ἦχος Πλ. Δ΄</option>
+      </select>
+    </div>
+
+    <div class="tb-section">
+      <div class="tb-label">Nota base (ἴσον)</div>
+      <div class="oct-row">
+        <select id="baseNoteSelect">
+          <option value="Ni">Νη (Ni)</option>
+          <option value="Pa">Πα (Pa)</option>
+          <option value="Vou">Βου (Vou)</option>
+          <option value="Ga">Γα (Ga)</option>
+          <option value="Di" selected>Δι (Di)</option>
+          <option value="Ke">Κε (Ke)</option>
+          <option value="Zo">Ζω (Zo)</option>
+        </select>
+        <input type="number" id="octaveInput" value="3" min="1" max="6">
+      </div>
+    </div>
+
+    <div class="hint">
+      A notação bizantina é <em>relativa</em>: cada neuma indica quantos graus subir ou descer a partir da nota anterior, não uma altura fixa. A escala usada aqui é uma aproximação temperada e diatônica para fins de composição e estudo — não reproduz os géneros microtonais tradicionais nem a prática viva do ison.
+      <br><br>
+      <strong>Ἁπλή/Διπλή/Τριπλή</strong> e <strong>κλάσμα</strong> alteram apenas a nota em que são colocados. Já <strong>γοργόν, δίγοργον</strong> e <strong>τρίγοργον</strong> são sinais de <em>agrupamento</em>: o γοργόν reduz à metade a nota em que é colocado e a nota anterior; o δίγοργον reduz a ⅓ a nota anterior, a própria e a seguinte; o τρίγοργον reduz a ¼ a nota anterior, a própria e as duas seguintes.
+      <br><br>
+      Em <strong>Combinar sinais</strong> você pode empilhar mais de um sinal na mesma direção (ex.: Ὑψηλή+Ὀλίγον = +5) — clique de novo no mesmo sinal para dobrá-lo (Ὑψηλή×2 = +8, uma oitava). Sinais ascendentes e descendentes não se combinam entre si, pois cada neuma se move numa única direção.
+    </div>
+  </aside>
+
+  <section class="score-panel">
+    <div class="score-scroll">
+      <div id="neumeRow"></div>
+    </div>
+    <div class="score-meta">
+      <span id="metaInfo">0 neumas</span>
+
+ <div class="transport-group">
+    <button class="play-btn" id="playBtn" title="Tocar">▶</button>
+    <button class="stop-btn" id="stopBtn" title="Parar">■</button>
+  </div>
+ 
+      <span id="metaDur">0:00 estimado</span>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="transport-group">
+    <button class="play-btn" id="playBtn" title="Tocar">▶</button>
+    <button class="stop-btn" id="stopBtn" title="Parar">■</button>
+  </div>
+  <div class="bpm-box">
+    <span class="tb-label">BPM</span>
+    <input type="range" id="bpmRange" min="30" max="180" value="80">
+    <span class="bpm-val" id="bpmVal">80</span>
+  </div>
+  <label class="check-box"><input type="checkbox" id="isonCheck" checked> Ison (bordão)</label>
+  <div class="transport-group">
+    <button class="ghost-btn" id="undoBtn">Apagar última</button>
+    <button class="ghost-btn" id="clearBtn">Limpar tudo</button>
+  </div>
+  <div class="spacer"></div>
+  <div class="transport-group">
+    <button class="ghost-btn" id="exportBtn">Exportar .json</button>
+    <button class="ghost-btn" id="importLabel">Importar .json</button>
+    <input type="file" id="importInput" accept="application/json">
+    <button class="ghost-btn" id="printBtn">Imprimir / PDF</button>
+  </div>
+</footer>
+
+<script src="js/theory.js"></script>
+<script src="js/icons.js"></script>
+<script src="js/state.js"></script>
+<script src="js/render.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/toolbar.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/footer.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
