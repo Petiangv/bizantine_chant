@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="css/score.css">
 <link rel="stylesheet" href="css/footer.css">
 <link rel="stylesheet" href="css/print.css">
+<link rel="stylesheet" href="css/pitch.css">
 </head>
 <body>
 
@@ -120,6 +121,15 @@
       <div id="neumeRow"></div>
     </div>
     <div class="score-meta">
+<div class="pitch-panel">
+  <div class="pitch-head">
+    <div class="tb-label">Afinação ao vivo (microfone)</div>
+    <span class="pitch-read" id="pitchRead">—</span>
+    <button class="ghost-btn pitch-btn" id="pitchBtn">🎤 Ativar microfone</button>
+  </div>
+  <div class="pitch-canvas-wrap"><canvas id="pitchCanvas"></canvas></div>
+  <div class="pitch-err" id="pitchErr"></div>
+</div>
       <span id="metaInfo">0 neumas</span>
 
  <div class="transport-group">
@@ -164,6 +174,7 @@
 <script src="js/toolbar.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/footer.js"></script>
+<script src="js/pitch.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
