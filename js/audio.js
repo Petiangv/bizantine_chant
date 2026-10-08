@@ -15,6 +15,9 @@
     activeNodes = [];
     activeTimeouts = [];
     P.clearHighlight();
+P.playState = null;
+if (P.drawPitchBands) P.drawPitchBands();
+	
   }
 
   function playAll(){
@@ -29,6 +32,8 @@
 
     const durSec = P.computeDurations();
     const totalDur = durSec.reduce(function(a,b){ return a+b; }, 0);
+// sinaliza ao módulo de pitch onde está o início da reprodução (em performance.now)
+P.playState = { start: performance.now() + (t - audioCtx.currentTime) * 1000, total: totalDur };
 
     if (S.isonOn){
       const freq = 440*Math.pow(2,(bMidi-69)/12);
@@ -80,9 +85,15 @@
       t += dur;
     });
 
-    activeTimeouts.push(setTimeout(function(){
-      P.clearHighlight();
-    }, (t-audioCtx.currentTime)*1000+80));
+   activeTimeouts.push(setTimeout(function(){
+  P.clearHighlight();
+  P.playState = null;
+  if (P.drawPitchBands) P.drawPitchBands();
+}, (t-audioCtx.currentTime)*1000+80));
+
+if (P.drawPitchBands) P.drawPitchBands();   // inicia a animação do cursor
+
+
   }
 
   Object.assign(P, { playAll, stopPlayback });

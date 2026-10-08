@@ -69,6 +69,7 @@
     const sec = Math.round(total);
     const mm = Math.floor(sec/60), ss = sec%60;
     document.getElementById('metaDur').textContent = mm+':'+(ss<10?'0':'')+ss+' estimado';
+if (P.drawPitchBands) P.drawPitchBands();
   }
 
   function clearHighlight(){
