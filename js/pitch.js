@@ -25,6 +25,8 @@
   let recent = [];
   let current = null;
   let currentFreq = null;
+  let playingEv = null;   // neuma da composição que está soando agora
+  let lastReadHtml = '';
 
   // ---------- teoria ----------
   function degName(deg){
@@ -138,6 +140,11 @@
 
     const score = scoreMode();
     const tl = score ? timeline() : null;
+    playingEv = null;
+    if (tl && ps){
+      const pt0 = (performance.now() - ps.start) / 1000;
+      playingEv = tl.ev.find(function(e){ return !e.rest && pt0 >= e.start && pt0 < e.start + e.dur; }) || null;
+    }
 
     let lo = DEG_MIN, hi = DEG_MAX;
     if (tl) tl.ev.forEach(function(e){
@@ -183,6 +190,7 @@
       ctx.fillStyle = '#e01b1b';
       ctx.beginPath(); ctx.arc(LABEL_W, y, 4, 0, Math.PI * 2); ctx.fill();
     }
+    updateReadout();
   }
 
   function drawScore(tl, ps, yOf, bandH, plotW, h){
@@ -247,17 +255,29 @@
     ctx.stroke();
   }
 
+  // Leitura única: frequência da nota da composição (♪) e do microfone (🎤), no mesmo lugar.
   function updateReadout(){
-    if (currentFreq == null || current == null){ readout.textContent = '—'; return; }
-    const nearest = Math.round(current);
-    const cents = Math.round(1200 * Math.log2(currentFreq / degFreq(nearest)));
-    readout.textContent = degName(nearest) + '  ' + currentFreq.toFixed(1) + ' Hz  (' + (cents > 0 ? '+' : '') + cents + '¢)';
+    const lines = [];
+    if (playingEv){
+      lines.push('<span class="rd-score">♪ ' + degName(playingEv.deg) + ' · ' + degFreq(playingEv.deg).toFixed(1) + ' Hz</span>');
+    }
+    if (analyser){
+      if (currentFreq != null && current != null){
+        const nearest = Math.round(current);
+        const cents = Math.round(1200 * Math.log2(currentFreq / degFreq(nearest)));
+        lines.push('🎤 ' + degName(nearest) + ' · ' + currentFreq.toFixed(1) + ' Hz (' + (cents > 0 ? '+' : '') + cents + '¢)');
+      } else {
+        lines.push('🎤 —');
+      }
+    }
+    const html = lines.length ? lines.join('<br>') : '—';
+    if (html !== lastReadHtml){ readout.innerHTML = html; lastReadHtml = html; }
   }
 
   // ---------- laço de animação (mic ativo OU reprodução em curso) ----------
   function frame(){
     looping = false;
-    if (analyser){ detect(); updateReadout(); }
+    if (analyser) detect();
     draw();
     if (analyser || activePlay()) kick();
   }
@@ -293,7 +313,6 @@
     if (micCtx) micCtx.close();
     stream = micCtx = analyser = null;
     current = currentFreq = null;
-    readout.textContent = '—';
     btn.textContent = '🎤 Ativar microfone';
     btn.classList.remove('rec');
     draw();
