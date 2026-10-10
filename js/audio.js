@@ -3,7 +3,7 @@
   "use strict";
 
   const S = P.state;
-  const neumeInterval = P.neumeInterval, degreeSemitone = P.degreeSemitone;
+  const neumeInterval = P.neumeInterval;
 
   let audioCtx = null;
   let activeNodes = [];
@@ -14,10 +14,9 @@
     activeTimeouts.forEach(function(t){ clearTimeout(t); });
     activeNodes = [];
     activeTimeouts = [];
+    P.playState = null;
     P.clearHighlight();
-P.playState = null;
-if (P.drawPitchBands) P.drawPitchBands();
-	
+    if (P.drawPitchBands) P.drawPitchBands();
   }
 
   function playAll(){
@@ -26,17 +25,20 @@ if (P.drawPitchBands) P.drawPitchBands();
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') audioCtx.resume();
 
-    const bMidi = P.baseMidi();
+    // frequência absoluta da nota base (Νη2 = Dó3); os demais graus em morias
+    const baseFreq = P.baseFrequency(S.mode, S.baseNote, S.octave);
     let cumulative = 0;
     let t = audioCtx.currentTime + 0.08;
 
     const durSec = P.computeDurations();
     const totalDur = durSec.reduce(function(a,b){ return a+b; }, 0);
-// sinaliza ao módulo de pitch onde está o início da reprodução (em performance.now)
-P.playState = { start: performance.now() + (t - audioCtx.currentTime) * 1000, total: totalDur };
+
+    // o gráfico de pitch usa isto para sincronizar o cursor (performance.now em ms)
+    P.playState = { start: performance.now() + 80, total: totalDur };
+    if (P.drawPitchBands) P.drawPitchBands();
 
     if (S.isonOn){
-      const freq = 440*Math.pow(2,(bMidi-69)/12);
+      const freq = baseFreq;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = 'sine';
@@ -60,8 +62,8 @@ P.playState = { start: performance.now() + (t - audioCtx.currentTime) * 1000, to
         return;
       }
       cumulative += neumeInterval(n);
-      const midi = bMidi + degreeSemitone(cumulative);
-      const freq = 440*Math.pow(2,(midi-69)/12);
+      const moria = P.degreeMoria(cumulative, S.mode, S.baseNote);
+      const freq = baseFreq * Math.pow(2, moria / P.MORIA_OCTAVE);
 
       const osc = audioCtx.createOscillator();
       const lfo = audioCtx.createOscillator();
@@ -85,15 +87,11 @@ P.playState = { start: performance.now() + (t - audioCtx.currentTime) * 1000, to
       t += dur;
     });
 
-   activeTimeouts.push(setTimeout(function(){
-  P.clearHighlight();
-  P.playState = null;
-  if (P.drawPitchBands) P.drawPitchBands();
-}, (t-audioCtx.currentTime)*1000+80));
-
-if (P.drawPitchBands) P.drawPitchBands();   // inicia a animação do cursor
-
-
+    activeTimeouts.push(setTimeout(function(){
+      P.clearHighlight();
+      P.playState = null;
+      if (P.drawPitchBands) P.drawPitchBands();
+    }, (t-audioCtx.currentTime)*1000+80));
   }
 
   Object.assign(P, { playAll, stopPlayback });

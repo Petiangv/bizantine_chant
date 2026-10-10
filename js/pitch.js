@@ -1,14 +1,16 @@
 /* Afinação ao vivo + visualização da composição:
-   microfone → pitch (YIN) → faixas das notas bizantinas, com a melodia do editor
+   microfone → pitch (YIN) → linhas das notas bizantinas posicionadas em MORIAS
+   (alturas desiguais, conforme a escala do ἦχος), com a melodia do editor
    desenhada como barras e um cursor sincronizado com a reprodução. */
 (function (P) {
   "use strict";
 
   const S = P.state;
   const CYCLE = ['Ni','Pa','Vou','Ga','Di','Ke','Zo'];
-  const DEG_MIN = -7, DEG_MAX = 7;   // faixa mínima exibida (relativa à nota base)
+  const DEG_MIN = -7, DEG_MAX = 7;   // faixa mínima exibida (graus relativos à nota base)
   const HISTORY_SEC = 6;             // janela do modo "rolagem" (sem composição)
   const LABEL_W = 52;
+  const PAD = 5;                     // folga (em morias) acima e abaixo da faixa
 
   const canvas = document.getElementById('pitchCanvas');
   const ctx = canvas.getContext('2d');
@@ -19,36 +21,34 @@
 
   let micCtx = null, stream = null, analyser = null, buf = null;
   let looping = false;
-  let history = [];      // modo rolagem: {t, deg}
-  let trace = [];        // modo composição: {t (s desde o início), deg}
+  let history = [];      // modo rolagem: {t, m}   (m = morias a partir da nota base)
+  let trace = [];        // modo composição: {t (s desde o início), m}
   let lastPs = null;
   let recent = [];
-  let current = null;
+  let current = null;    // morias da nota detectada agora
   let currentFreq = null;
-  let playingEv = null;   // neuma da composição que está soando agora
+  let playingEv = null;  // neuma da composição que está soando agora
   let lastReadHtml = '';
 
-  // ---------- teoria ----------
+  // ---------- teoria (tudo em morias) ----------
+  function moriaOf(deg){ return P.degreeMoria(deg, S.mode, S.baseNote); }
+  function baseFreq(){ return P.baseFrequency(S.mode, S.baseNote, S.octave); }
+  function degFreq(deg){ return baseFreq() * Math.pow(2, moriaOf(deg) / P.MORIA_OCTAVE); }
+  function freqToMoria(f){ return P.MORIA_OCTAVE * Math.log2(f / baseFreq()); }
+  // grau (inteiro) cuja nota está mais perto de `m` morias
+  function nearestDeg(m){
+    let best = 0, bd = Infinity;
+    for (let d = -21; d <= 21; d++){
+      const dist = Math.abs(moriaOf(d) - m);
+      if (dist < bd){ bd = dist; best = d; }
+    }
+    return best;
+  }
   function degName(deg){
     const baseIdx = CYCLE.indexOf(S.baseNote);
     const i = (((baseIdx + deg) % 7) + 7) % 7;
     const mark = deg >= 7 ? '′' : (deg < 0 ? '͵' : '');
     return P.NOTE_LABEL[CYCLE[i]] + mark;
-  }
-  function degFreq(deg){
-    return 440 * Math.pow(2, (P.baseMidi() + P.degreeSemitone(deg) - 69) / 12);
-  }
-  function semitoneToDegree(st){
-    const o = Math.floor(st / 12);
-    const rem = st - o * 12;
-    const steps = P.DIATONIC_STEPS.concat([12]);
-    for (let k = 0; k < 7; k++){
-      if (rem >= steps[k] && rem < steps[k+1]) return o*7 + k + (rem - steps[k]) / (steps[k+1] - steps[k]);
-    }
-    return o * 7;
-  }
-  function freqToDegree(f){
-    return semitoneToDegree(69 + 12 * Math.log2(f / 440) - P.baseMidi());
   }
 
   // ---------- composição → linha do tempo (mesma lógica do audio.js) ----------
@@ -60,7 +60,7 @@
       if (n.kind === 'rest'){ ev.push({ i:i, rest:true, start:t, dur:durs[i] }); }
       else {
         cum += P.neumeInterval(n);
-        ev.push({ i:i, deg:cum, start:t, dur:durs[i], mod:n.mod });
+        ev.push({ i:i, deg:cum, m:moriaOf(cum), start:t, dur:durs[i], mod:n.mod });
       }
       t += durs[i];
     });
@@ -110,17 +110,17 @@
     const freq = rms(buf) > 0.01 ? yin(buf, micCtx.sampleRate) : null;
     currentFreq = freq;
     if (freq){
-      recent.push(freqToDegree(freq));
+      recent.push(freqToMoria(freq));
       if (recent.length > 5) recent.shift();
       const s = recent.slice().sort(function(a,b){ return a-b; });
       current = s[s.length >> 1];
     } else { recent = []; current = null; }
 
-    history.push({ t:now, deg:current });
+    history.push({ t:now, m:current });
     while (history.length && now - history[0].t > HISTORY_SEC) history.shift();
 
     const ps = activePlay();
-    if (ps) trace.push({ t:(performance.now() - ps.start) / 1000, deg:current });
+    if (ps) trace.push({ t:(performance.now() - ps.start) / 1000, m:current });
   }
 
   // ---------- desenho ----------
@@ -150,40 +150,68 @@
     if (tl) tl.ev.forEach(function(e){
       if (e.deg != null){ lo = Math.min(lo, Math.floor(e.deg)); hi = Math.max(hi, Math.ceil(e.deg)); }
     });
-    const n = hi - lo + 1;
-    const bandH = h / n;
-    const yOf = function(deg){ return (hi - deg) * bandH + bandH / 2; };
+
+    // posição vertical de cada grau, proporcional às morias
+    const ms = [];
+    for (let deg = lo; deg <= hi; deg++) ms.push(moriaOf(deg));
+    const mTop = ms[ms.length - 1] + PAD, mBot = ms[0] - PAD;
+    const yOf = function(m){ return (mTop - m) / (mTop - mBot) * h; };
     const plotW = w - LABEL_W;
 
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = css('--paper');
     ctx.fillRect(0, 0, w, h);
 
-    // faixas
-    ctx.font = '600 ' + Math.max(8, Math.min(12, bandH * 0.8)) + 'px "Noto Serif", serif';
+    // faixas alternadas entre graus vizinhos (altura = tamanho do intervalo em morias)
+    for (let k = 0; k < ms.length - 1; k++){
+      if ((lo + k) % 2 !== 0) continue;
+      const yTop = yOf(ms[k+1]), yBot = yOf(ms[k]);
+      ctx.fillStyle = '#00000008';
+      ctx.fillRect(0, yTop, w, yBot - yTop);
+    }
+
+    // linhas e rótulos de cada grau
+    ctx.font = '600 10px "Noto Serif", serif';
     ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+    let lastLabelY = null;
     for (let deg = hi; deg >= lo; deg--){
-      const top = (hi - deg) * bandH;
+      const y = yOf(ms[deg - lo]);
       const isBase = deg === 0, isOct = (((deg % 7) + 7) % 7) === 0;
-      ctx.fillStyle = isBase ? '#c9a22740' : (deg % 2 === 0 ? '#00000008' : '#00000000');
-      ctx.fillRect(0, top, w, bandH);
-      ctx.strokeStyle = isOct ? '#5a463666' : '#5a463622';
+      if (isBase){
+        ctx.fillStyle = '#c9a22740';
+        ctx.fillRect(0, y - 3, w, 6);
+      }
+      ctx.strokeStyle = isOct ? '#5a463699' : '#5a463644';
       ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(LABEL_W, top + bandH); ctx.lineTo(w, top + bandH); ctx.stroke();
-      ctx.fillStyle = isBase ? css('--accent-2') : css('--ink-soft');
-      ctx.fillText(degName(deg), 8, top + bandH / 2);
+      ctx.beginPath(); ctx.moveTo(LABEL_W, y); ctx.lineTo(w, y); ctx.stroke();
+      if (isBase || lastLabelY == null || y - lastLabelY >= 10){
+        ctx.fillStyle = isBase ? css('--accent-2') : css('--ink-soft');
+        ctx.fillText(degName(deg), 8, y);
+        lastLabelY = y;
+      }
     }
     ctx.strokeStyle = '#5a463655';
     ctx.beginPath(); ctx.moveTo(LABEL_W, 0); ctx.lineTo(LABEL_W, h); ctx.stroke();
 
+    // morias de cada intervalo, no espaço entre duas notas (fonte menor que a das notas)
+    ctx.font = '400 8px "Noto Serif", serif';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = css('--accent-2');
+    for (let k = 0; k < ms.length - 1; k++){
+      const yTop = yOf(ms[k+1]), yBot = yOf(ms[k]);
+      if (yBot - yTop < 7) continue;   // intervalo pequeno demais para caber o número
+      ctx.fillText(String(ms[k+1] - ms[k]), LABEL_W - 5, (yTop + yBot) / 2);
+    }
+    ctx.textAlign = 'left';
+
     if (tl && tl.total > 0){
-      drawScore(tl, ps, yOf, bandH, plotW, h);
+      drawScore(tl, ps, yOf, plotW, h);
     } else {
-      drawHistory(yOf, plotW, w, lo, hi);
+      drawHistory(yOf, plotW, w, mBot, mTop);
     }
 
     // linha vermelha: nota detectada agora
-    if (current != null && current >= lo - 0.5 && current <= hi + 0.5){
+    if (current != null && current >= mBot && current <= mTop){
       const y = yOf(current);
       ctx.strokeStyle = '#e01b1b'; ctx.lineWidth = 2.5;
       ctx.beginPath(); ctx.moveTo(LABEL_W, y); ctx.lineTo(w, y); ctx.stroke();
@@ -193,7 +221,7 @@
     updateReadout();
   }
 
-  function drawScore(tl, ps, yOf, bandH, plotW, h){
+  function drawScore(tl, ps, yOf, plotW, h){
     const xOf = function(t){ return LABEL_W + (t / tl.total) * plotW; };
     const pt = ps ? Math.max(0, Math.min(tl.total, (performance.now() - ps.start) / 1000)) : null;
 
@@ -203,21 +231,21 @@
     let first = true;
     tl.ev.forEach(function(e){
       if (e.rest) return;
-      const y = yOf(e.deg), x = xOf(e.start + e.dur / 2);
+      const y = yOf(e.m), x = xOf(e.start + e.dur / 2);
       if (first){ ctx.moveTo(x, y); first = false; } else ctx.lineTo(x, y);
     });
     ctx.stroke();
 
     // barras das notas
+    const bh = 8;
     tl.ev.forEach(function(e){
       if (e.rest) return;
       const x = xOf(e.start);
       const bw = Math.max(3, xOf(e.start + e.dur) - x - 1.5);
-      const bh = Math.max(4, bandH * 0.55);
       const active = pt != null && pt >= e.start && pt < e.start + e.dur;
       ctx.fillStyle = active ? '#c9a227' : css('--ink');
       ctx.globalAlpha = active ? 1 : 0.78;
-      ctx.fillRect(x, yOf(e.deg) - bh / 2, bw, bh);
+      ctx.fillRect(x, yOf(e.m) - bh / 2, bw, bh);
       ctx.globalAlpha = 1;
     });
 
@@ -226,8 +254,8 @@
     ctx.beginPath();
     let pen = false;
     trace.forEach(function(p){
-      if (p.deg == null || p.t < 0 || p.t > tl.total){ pen = false; return; }
-      const x = xOf(p.t), y = yOf(p.deg);
+      if (p.m == null || p.t < 0 || p.t > tl.total){ pen = false; return; }
+      const x = xOf(p.t), y = yOf(p.m);
       if (!pen){ ctx.moveTo(x, y); pen = true; } else ctx.lineTo(x, y);
     });
     ctx.stroke();
@@ -240,22 +268,22 @@
     }
   }
 
-  function drawHistory(yOf, plotW, w, lo, hi){
+  function drawHistory(yOf, plotW, w, mBot, mTop){
     const now = performance.now() / 1000;
     ctx.strokeStyle = '#d3222299'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
     ctx.beginPath();
     let pen = false;
     history.forEach(function(p){
-      if (p.deg == null || p.deg < lo - 0.5 || p.deg > hi + 0.5){ pen = false; return; }
+      if (p.m == null || p.m < mBot || p.m > mTop){ pen = false; return; }
       const x = w - (now - p.t) / HISTORY_SEC * plotW;
       if (x < LABEL_W){ pen = false; return; }
-      const y = yOf(p.deg);
+      const y = yOf(p.m);
       if (!pen){ ctx.moveTo(x, y); pen = true; } else ctx.lineTo(x, y);
     });
     ctx.stroke();
   }
 
-  // Leitura única: frequência da nota da composição (♪) e do microfone (🎤), no mesmo lugar.
+  // Leitura única: nota da composição (♪) e do microfone (🎤), no mesmo lugar.
   function updateReadout(){
     const lines = [];
     if (playingEv){
@@ -263,9 +291,11 @@
     }
     if (analyser){
       if (currentFreq != null && current != null){
-        const nearest = Math.round(current);
+        const nearest = nearestDeg(current);
+        const dm = current - moriaOf(nearest);
         const cents = Math.round(1200 * Math.log2(currentFreq / degFreq(nearest)));
-        lines.push('🎤 ' + degName(nearest) + ' · ' + currentFreq.toFixed(1) + ' Hz (' + (cents > 0 ? '+' : '') + cents + '¢)');
+        lines.push('🎤 ' + degName(nearest) + ' · ' + currentFreq.toFixed(1) + ' Hz (' +
+          (dm > 0 ? '+' : '') + dm.toFixed(1) + ' mo · ' + (cents > 0 ? '+' : '') + cents + '¢)');
       } else {
         lines.push('🎤 —');
       }

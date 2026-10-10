@@ -69,7 +69,8 @@
     const sec = Math.round(total);
     const mm = Math.floor(sec/60), ss = sec%60;
     document.getElementById('metaDur').textContent = mm+':'+(ss<10?'0':'')+ss+' estimado';
-if (P.drawPitchBands) P.drawPitchBands();
+    // redesenha o gráfico de pitch (definido em pitch.js, que carrega depois)
+    if (P.drawPitchBands) P.drawPitchBands();
   }
 
   function clearHighlight(){

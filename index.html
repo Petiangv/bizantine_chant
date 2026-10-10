@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="css/footer.css">
 <link rel="stylesheet" href="css/print.css">
 <link rel="stylesheet" href="css/pitch.css">
+<link rel="stylesheet" href="css/scales.css">
 </head>
 <body>
 
@@ -130,6 +131,30 @@
   </div>
   <div class="pitch-canvas-wrap"><canvas id="pitchCanvas"></canvas></div>
   <div class="pitch-err" id="pitchErr"></div>
+  <div class="scales-info">
+    <div class="tb-label">Resumo das Escalas por Tom</div>
+    <div class="scales-wrap">
+      <table class="scales-table">
+        <thead>
+          <tr><th>Tom</th><th>Base (Nota Final)</th><th>Tipo de Escala</th><th>Correspondência Ocidental (aprox.)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>α΄ (1º Autêntico)</td><td>Pa (Ré)</td><td>Diatônica</td><td>Dórico</td></tr>
+          <tr><td>β΄ (2º Autêntico)</td><td>Di (Sol)</td><td>Cromática Suave</td><td>—</td></tr>
+          <tr><td>γ΄ (3º Autêntico)</td><td>Ga (Fá)</td><td>Enarmônica</td><td>—</td></tr>
+          <tr><td>δ΄ (4º Autêntico)</td><td>Di (Sol)</td><td>Diatônica</td><td>Mixolídio</td></tr>
+          <tr><td>πλ. α΄ (1º Plagal)</td><td>Ke (Lá)</td><td>Diatônica</td><td>Hipodórico</td></tr>
+          <tr><td>πλ. β΄ (2º Plagal)</td><td>Di (Sol)</td><td>Cromática Dura</td><td>—</td></tr>
+          <tr><td>Βαρύς (Barys)</td><td>Zo (Si)</td><td>Enarmônica</td><td>—</td></tr>
+          <tr><td>πλ. δ΄ (4º Plagal)</td><td>Ni (Dó)</td><td>Diatônica</td><td>Hipomixolídio</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="scales-more">
+      Para aprofundar (diagrama completo das escalas, sombreamentos de tetracordes e fthores), veja o material em
+      <a href="estudo/Byzantine%20Chant%20-%20Diagram_njj-edit%20%28V1.2%29.pdf" target="_blank" rel="noopener">psaltiki/estudo →</a>
+    </p>
+  </div>
 </div>
       <span id="metaInfo">0 neumas</span>
 
